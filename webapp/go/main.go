@@ -1240,6 +1240,10 @@ func postIsuCondition(c echo.Context) error {
 		return c.String(http.StatusNotFound, "not found: isu")
 	}
 
+	conn := pool.Get()
+	defer conn.Close()
+	var condsToRedis []*IsuCondition
+
 	sql := "INSERT INTO `isu_condition`" +
 		"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
 	params := []interface{}{}
@@ -1253,6 +1257,14 @@ func postIsuCondition(c echo.Context) error {
 
 		sql += "(?,?,?,?,?),"
 		params = append(params, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
+
+		condsToRedis = append(condsToRedis, &IsuCondition{
+			JIAIsuUUID: jiaIsuUUID,
+			Timestamp:  timestamp,
+			IsSitting:  cond.IsSitting,
+			Condition:  cond.Condition,
+			Message:    cond.Message,
+		})
 	}
 
 	sql = sql[:len(sql)-1]
@@ -1263,6 +1275,17 @@ func postIsuCondition(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	for _, ic := range condsToRedis {
+		jStr, err := json.Marshal(ic)
+		if err != nil {
+			c.Logger().Errorf("marshal error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		if _, err := conn.Do("ZADD", ic.redisKey(), ic.zkey(), jStr); err != nil {
+			c.Logger().Errorf("redis error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+	}
 	return c.NoContent(http.StatusAccepted)
 }
 
