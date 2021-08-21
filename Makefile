@@ -44,6 +44,7 @@ deploy: $(APP) stop scp scp-sql scp-env start
 
 scp-nginx:
 	ssh isu01 "sudo dd of=/etc/nginx/nginx.conf" < ./etc/nginx/nginx.conf
+	ssh isu01 "sudo dd of=/etc/nginx/sites-available/isucondition.conf" < ./etc/nginx/sites-available/isucondition.conf
 
 reload-nginx:
 	ssh isu01 "sudo systemctl reload nginx.service"
