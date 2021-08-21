@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -297,13 +298,27 @@ func getUserIDFromSession(c echo.Context) (string, int, error) {
 	return jiaUserID, 0, nil
 }
 
-func getJIAServiceURL(tx *sqlx.Tx) string {
-	var config Config
-	err := tx.Get(&config, "SELECT * FROM `isu_association_config` WHERE `name` = ?", "jia_service_url")
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			log.Print(err)
+type queryExecutor interface {
+	Get(interface{}, string, ...interface{}) error
+	Queryx(string, ...interface{}) (*sqlx.Rows, error)
+}
+
+var (
+	config     = &Config{}
+	configOnce sync.Once
+)
+
+func getJIAServiceURL(tx queryExecutor) string {
+	configOnce.Do(func() {
+		err := tx.Get(config, "SELECT * FROM `isu_association_config` WHERE `name` = ?", "jia_service_url")
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				log.Print(err)
+			}
+			configOnce = sync.Once{}
 		}
+	})
+	if config == nil {
 		return defaultJIAServiceURL
 	}
 	return config.URL
@@ -780,7 +795,7 @@ func getIsuGraph(c echo.Context) error {
 }
 
 // グラフのデータ点を一日分生成
-func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Time) ([]GraphResponse, error) {
+func generateIsuGraphResponse(tx queryExecutor, jiaIsuUUID string, graphDate time.Time) ([]GraphResponse, error) {
 	dataPoints := []GraphDataPointWithInfo{}
 	conditionsInThisHour := []IsuCondition{}
 	timestampsInThisHour := []int64{}
