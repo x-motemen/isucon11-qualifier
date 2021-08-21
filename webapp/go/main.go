@@ -1072,9 +1072,9 @@ func getIsuConditionsFromRedis(jiaIsuUUID string, endTime time.Time, conditionLe
 	}
 	max := strconv.Itoa(int(endTime.Unix()))
 
-	results, err := redis.Strings(conn.Do("ZRANGEBYSCORE", condPrefix+jiaIsuUUID, "("+max, min, "WITHSCORES"))
+	results, err := redis.Strings(conn.Do("ZREVRANGEBYSCORE", condPrefix+jiaIsuUUID, "("+max, min, "WITHSCORES"))
 	if err != nil {
-		return nil, fmt.Errorf("ZRANGEBYSCORE %s error: %v", condPrefix+jiaIsuUUID, err)
+		return nil, fmt.Errorf("ZREVRANGEBYSCORE %s error: %v", condPrefix+jiaIsuUUID, err)
 	}
 
 	for i := 0; i < len(results); i += 2 {
@@ -1093,6 +1093,10 @@ func getIsuConditionsFromRedis(jiaIsuUUID string, endTime time.Time, conditionLe
 
 		conditions = append(conditions, cond)
 	}
+
+	// sort.Slice(conditions, func(i, j int) bool {
+	// 	return conditions[i].Timestamp.Unix() > conditions[j].Timestamp.Unix()
+	// })
 
 	// ここから DB バージョンと一緒
 
