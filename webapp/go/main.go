@@ -510,7 +510,8 @@ func getIsuList(c echo.Context) error {
 			JIAIsuUUID:         isu.JIAIsuUUID,
 			Name:               isu.Name,
 			Character:          isu.Character,
-			LatestIsuCondition: formattedCondition}
+			LatestIsuCondition: formattedCondition,
+		}
 		responseList = append(responseList, res)
 	}
 
@@ -806,7 +807,8 @@ func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Tim
 						JIAIsuUUID:          jiaIsuUUID,
 						StartAt:             startTimeInThisHour,
 						Data:                data,
-						ConditionTimestamps: timestampsInThisHour})
+						ConditionTimestamps: timestampsInThisHour,
+					})
 			}
 
 			startTimeInThisHour = truncatedConditionTime
@@ -828,7 +830,8 @@ func generateIsuGraphResponse(tx *sqlx.Tx, jiaIsuUUID string, graphDate time.Tim
 				JIAIsuUUID:          jiaIsuUUID,
 				StartAt:             startTimeInThisHour,
 				Data:                data,
-				ConditionTimestamps: timestampsInThisHour})
+				ConditionTimestamps: timestampsInThisHour,
+			})
 	}
 
 	endTime := graphDate.Add(time.Hour * 24)
@@ -1197,6 +1200,10 @@ func postIsuCondition(c echo.Context) error {
 		return c.String(http.StatusNotFound, "not found: isu")
 	}
 
+	sql := "INSERT INTO `isu_condition`" +
+		"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
+	params := []interface{}{}
+
 	for _, cond := range req {
 		timestamp := time.Unix(cond.Timestamp, 0)
 
@@ -1204,16 +1211,16 @@ func postIsuCondition(c echo.Context) error {
 			return c.String(http.StatusBadRequest, "bad request body")
 		}
 
-		_, err = tx.Exec(
-			"INSERT INTO `isu_condition`"+
-				"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`)"+
-				"	VALUES (?, ?, ?, ?, ?)",
-			jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
-		if err != nil {
-			c.Logger().Errorf("db error: %v", err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+		sql += "(?,?,?,?,?),"
+		params = append(params, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
+	}
 
+	sql = sql[:len(sql)-1]
+
+	_, err = tx.Exec(sql, params...)
+	if err != nil {
+		c.Logger().Errorf("db error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	err = tx.Commit()
@@ -1227,7 +1234,6 @@ func postIsuCondition(c echo.Context) error {
 
 // ISUのコンディションの文字列がcsv形式になっているか検証
 func isValidConditionFormat(conditionStr string) bool {
-
 	keys := []string{"is_dirty=", "is_overweight=", "is_broken="}
 	const valueTrue = "true"
 	const valueFalse = "false"
