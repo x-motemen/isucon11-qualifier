@@ -63,3 +63,6 @@ restart-mariadb:
 	wait
 
 deploy-mariadb: scp-mariadb restart-mariadb
+
+alp:
+	ssh isu01 alp ltsv --file /var/log/nginx/access_log.ltsv -m '/api/condition/.*,/api/isu/[^/]*/icon,/api/isu/[^/]*/graph,/api/isu/[^/]*$,/isu/[^/]*/condition,/isu/[^/]*/graph,/isu/[^/]*$,/assets/.*' --sort sum --reverse
