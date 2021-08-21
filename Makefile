@@ -11,7 +11,7 @@ scp: $(APP)
 	scp ./$(APP) isu03:/home/isucon/webapp/go/$(APP) & \
 	wait
 
-scp-db:
+scp-sql:
 	scp -r ./webapp/sql isu01:/home/isucon/webapp & \
 	scp -r ./webapp/sql isu02:/home/isucon/webapp & \
 	scp -r ./webapp/sql isu03:/home/isucon/webapp & \
@@ -40,7 +40,7 @@ start:
 	ssh isu03 "sudo systemctl start $(APP).go.service" & \
 	wait
 
-deploy: $(APP) stop scp scp-db scp-env start
+deploy: $(APP) stop scp scp-sql scp-env start
 
 scp-nginx:
 	ssh isu01 "sudo dd of=/etc/nginx/nginx.conf" < ./etc/nginx/nginx.conf
@@ -50,14 +50,14 @@ reload-nginx:
 
 deploy-nginx: scp-nginx reload-nginx
 
-scp-mysql:
-	ssh isu01 "sudo dd of=/etc/mysql/mysql.conf.d/mysqld.cnf" < ./etc/mysql/mysql.conf.d/mysqld.cnf
-	ssh isu02 "sudo dd of=/etc/mysql/mysql.conf.d/mysqld.cnf" < ./etc/mysql/mysql.conf.d/mysqld.cnf
-	ssh isu03 "sudo dd of=/etc/mysql/mysql.conf.d/mysqld.cnf" < ./etc/mysql/mysql.conf.d/mysqld.cnf
+scp-mariadb:
+	ssh isu01 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
+	# ssh isu02 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
+	# ssh isu03 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
 
-restart-mysql:
-	ssh isu01 "sudo systemctl restart mysql.service"
-	ssh isu02 "sudo systemctl restart mysql.service"
-	ssh isu03 "sudo systemctl restart mysql.service"
+restart-mariadb:
+	ssh isu01 "sudo systemctl restart mariadb.service"
+	# ssh isu02 "sudo systemctl restart mariadb.service"
+	# ssh isu03 "sudo systemctl restart mariadb.service"
 
-deploy-mysql: scp-mysql restart-mysql
+deploy-mariadb: scp-mariadb restart-mariadb
