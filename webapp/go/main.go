@@ -550,22 +550,33 @@ func getIsuList(c echo.Context) error {
 	}
 
 	responseList := []GetIsuListResponse{}
+	conn := pool.Get()
+	defer conn.Close()
+
 	for _, isu := range isuList {
-		var lastCondition IsuCondition
-		foundLastCondition := true
-		err = tx.Get(&lastCondition, "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY `timestamp` DESC LIMIT 1",
-			isu.JIAIsuUUID)
+		result, err := redis.Strings(conn.Do("ZREVRANGEBYSCORE", isu.condRedisKey(), "+inf", "0", "WITHSCORES", "LIMIT", "0", "1"))
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				foundLastCondition = false
-			} else {
-				c.Logger().Errorf("db error: %v", err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
+			c.Logger().Errorf("redis error: ZRANGE: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
 		}
 
 		var formattedCondition *GetIsuConditionResponse
-		if foundLastCondition {
+		if len(result) == 0 {
+			// nop
+		} else {
+			var lastCondition IsuCondition
+			err = json.Unmarshal([]byte(result[0]), &lastCondition)
+			if err != nil {
+				c.Logger().Errorf("json.Unmarshal: %v", err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+			timesamp, err := strconv.ParseInt(result[1], 0, 0)
+			if err != nil {
+				c.Logger().Errorf("ParseInt(%q): %v", result[1], err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+			lastCondition.Timestamp = time.Unix(timesamp, 0)
+
 			conditionLevel, err := calculateConditionLevel(lastCondition.Condition)
 			if err != nil {
 				c.Logger().Error(err)
