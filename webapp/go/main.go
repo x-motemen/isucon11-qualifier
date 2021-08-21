@@ -857,25 +857,25 @@ func generateIsuGraphResponse(tx queryExecutor, jiaIsuUUID string, graphDate tim
 	conditionsInThisHour := []IsuCondition{}
 	timestampsInThisHour := []int64{}
 	var startTimeInThisHour time.Time
-	var condition IsuCondition
 	endTime := graphDate.Add(time.Hour * 24)
 
-	rows, err := tx.Queryx(
-		"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? "+
-			"AND timestamp BETWEEN ? AND ? "+
-			"ORDER BY `timestamp` ASC",
-		jiaIsuUUID,
-		graphDate,
-		endTime)
+	conn := pool.Get()
+	defer conn.Close()
+
+	max := strconv.Itoa(int(endTime.Unix()))
+	min := strconv.Itoa(int(graphDate.Unix()))
+	results, err := redis.Strings(conn.Do("ZRANGEBYSCORE", condPrefix+jiaIsuUUID, min, max, "WITHSCORES"))
 	if err != nil {
-		return nil, fmt.Errorf("db error: %v", err)
+		return nil, fmt.Errorf("redis error: %v", err)
 	}
 
-	for rows.Next() {
-		err = rows.StructScan(&condition)
+	for i := 0; i < len(results); i += 2 {
+		var condition IsuCondition
+		err := json.Unmarshal([]byte(results[i]), &condition)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal: %v", err)
 		}
+		condition.JIAIsuUUID = jiaIsuUUID
 
 		truncatedConditionTime := condition.Timestamp.Truncate(time.Hour)
 		if truncatedConditionTime != startTimeInThisHour {
