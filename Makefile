@@ -12,9 +12,10 @@ scp: $(APP)
 	wait
 
 scp-db:
-	# scp -r ./db isu01:/home/isucon/webapp/mysql
-	# scp -r ./db isu02:/home/isucon/webapp/mysql
-	# scp -r ./db isu03:/home/isucon/webapp/mysql
+	scp -r ./webapp/sql isu01:/home/isucon/webapp & \
+	scp -r ./webapp/sql isu02:/home/isucon/webapp & \
+	scp -r ./webapp/sql isu03:/home/isucon/webapp & \
+	wait
 
 scp-env:
 	scp ./env.sh isu01:/home/isucon/env.sh
