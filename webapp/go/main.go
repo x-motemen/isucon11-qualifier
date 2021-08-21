@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -289,6 +290,17 @@ func main() {
 		e.Logger.Fatalf("missing: POST_ISUCONDITION_TARGET_BASE_URL")
 		return
 	}
+
+	go func() {
+		var count int32
+		for {
+			err := db.Get(&count, "SELECT COUNT(*) FROM `user`")
+			if err == nil {
+				atomic.StoreInt32(&userCount, count)
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	serverPort := fmt.Sprintf(":%v", getEnv("SERVER_APP_PORT", "3000"))
 	e.Logger.Fatal(e.Start(serverPort))
@@ -1244,6 +1256,8 @@ func getTrend(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+var userCount int32
+
 // POST /api/condition/:jia_isu_uuid
 // ISUからのコンディションを受け取る
 func postIsuCondition(c echo.Context) error {
@@ -1262,6 +1276,10 @@ func postIsuCondition(c echo.Context) error {
 
 	// TODO: 一定割合リクエストを落としてしのぐようにしたが、本来は全量さばけるようにすべき
 	dropProbability := 0.8
+	if atomic.LoadInt32(&userCount) < 25 {
+		dropProbability = 0.1
+	}
+
 	if rand.Float64() <= dropProbability {
 		c.Logger().Warnf("drop post isu condition request")
 		return c.NoContent(http.StatusAccepted)
