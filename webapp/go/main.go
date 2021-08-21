@@ -95,6 +95,16 @@ type IsuCondition struct {
 	CreatedAt  time.Time `db:"created_at" json:"-"`
 }
 
+var condPrefix = "cond:"
+
+func (ic *IsuCondition) redisKey() string {
+	return condPrefix + ic.JIAIsuUUID
+}
+
+func (ic *IsuCondition) zkey() int64 {
+	return ic.Timestamp.Unix()
+}
+
 type MySQLConnectionEnv struct {
 	Host     string
 	Port     string
@@ -376,6 +386,14 @@ func postInitialize(c echo.Context) error {
 	if _, err := conn.Do("PING"); err != nil {
 		panic(err)
 	}
+
+	isuConditions := []IsuCondition{}
+	err = db.Select(&isuConditions, "SELECT * FROM `isu_condition`")
+	if err != nil {
+		c.Logger().Errorf("db error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
 	})
