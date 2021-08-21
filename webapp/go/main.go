@@ -20,6 +20,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-sql-driver/mysql"
+	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -209,10 +210,17 @@ func init() {
 	}
 }
 
+var pool *redis.Pool
+
 func main() {
 	go func() {
 		log.Error(http.ListenAndServe(":6060", nil))
 	}()
+	pool = &redis.Pool{
+		Dial: func() (redis.Conn, error) {
+			return redis.DialURL(os.Getenv("REDIS_ADDR"))
+		},
+	}
 
 	e := echo.New()
 	e.Debug = true
@@ -352,6 +360,14 @@ func postInitialize(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	conn := pool.Get()
+	defer conn.Close()
+	if err := conn.Flush(); err != nil {
+		panic(err)
+	}
+	if _, err := conn.Do("PING"); err != nil {
+		panic(err)
+	}
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
 	})
