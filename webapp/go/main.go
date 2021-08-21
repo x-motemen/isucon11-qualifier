@@ -248,7 +248,7 @@ func main() {
 	// e.Debug = true
 	e.Logger.SetLevel(log.INFO)
 
-	e.Use(middleware.Logger())
+	// e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	e.POST("/initialize", postInitialize)
