@@ -52,12 +52,13 @@ deploy-nginx: scp-nginx reload-nginx
 
 scp-mariadb:
 	ssh isu01 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
-	# ssh isu02 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
-	# ssh isu03 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
+	ssh isu02 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
+	ssh isu03 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
 
 restart-mariadb:
-	ssh isu01 "sudo systemctl restart mariadb.service"
-	# ssh isu02 "sudo systemctl restart mariadb.service"
-	# ssh isu03 "sudo systemctl restart mariadb.service"
+	ssh isu01 "sudo systemctl restart mariadb.service" & \
+	ssh isu02 "sudo systemctl restart mariadb.service" & \
+	ssh isu03 "sudo systemctl restart mariadb.service" & \
+	wait
 
 deploy-mariadb: scp-mariadb restart-mariadb
