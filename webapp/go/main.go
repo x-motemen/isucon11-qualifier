@@ -105,6 +105,10 @@ func (ic *IsuCondition) zkey() int64 {
 	return ic.Timestamp.Unix()
 }
 
+func (isu *Isu) condRedisKey() string {
+	return condPrefix + isu.JIAIsuUUID
+}
+
 type MySQLConnectionEnv struct {
 	Host     string
 	Port     string
@@ -1152,38 +1156,53 @@ func getTrend(c echo.Context) error {
 		characterInfoIsuConditions := []*TrendCondition{}
 		characterWarningIsuConditions := []*TrendCondition{}
 		characterCriticalIsuConditions := []*TrendCondition{}
+
+		conn := pool.Get()
+		defer conn.Close()
+
 		for _, isu := range isuList {
-			conditions := []IsuCondition{}
-			err = db.Select(&conditions,
-				"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY timestamp DESC LIMIT 1",
-				isu.JIAIsuUUID,
-			)
+			// [JSON, timestamp] が帰ってくるよ
+			result, err := redis.Strings(conn.Do("ZREVRANGEBYSCORE", isu.condRedisKey(), "+inf", "0", "WITHSCORES", "LIMIT", "0", "1"))
 			if err != nil {
-				c.Logger().Errorf("db error: %v", err)
+				c.Logger().Errorf("redis error: ZRANGE: %v", err)
 				return c.NoContent(http.StatusInternalServerError)
 			}
 
-			if len(conditions) > 0 {
-				isuLastCondition := conditions[0]
-				conditionLevel, err := calculateConditionLevel(isuLastCondition.Condition)
-				if err != nil {
-					c.Logger().Error(err)
-					return c.NoContent(http.StatusInternalServerError)
-				}
-				trendCondition := TrendCondition{
-					ID:        isu.ID,
-					Timestamp: isuLastCondition.Timestamp.Unix(),
-				}
-				switch conditionLevel {
-				case "info":
-					characterInfoIsuConditions = append(characterInfoIsuConditions, &trendCondition)
-				case "warning":
-					characterWarningIsuConditions = append(characterWarningIsuConditions, &trendCondition)
-				case "critical":
-					characterCriticalIsuConditions = append(characterCriticalIsuConditions, &trendCondition)
-				}
+			if len(result) == 0 {
+				continue
 			}
 
+			var cond IsuCondition
+			err = json.Unmarshal([]byte(result[0]), &cond)
+			if err != nil {
+				c.Logger().Errorf("json.Unmarshal: %v", err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+			timesamp, err := strconv.ParseInt(result[1], 0, 0)
+			if err != nil {
+				c.Logger().Errorf("ParseInt(%q): %v", result[1], err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+			cond.Timestamp = time.Unix(timesamp, 0)
+
+			isuLastCondition := cond
+			conditionLevel, err := calculateConditionLevel(isuLastCondition.Condition)
+			if err != nil {
+				c.Logger().Error(err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+			trendCondition := TrendCondition{
+				ID:        isu.ID,
+				Timestamp: isuLastCondition.Timestamp.Unix(),
+			}
+			switch conditionLevel {
+			case "info":
+				characterInfoIsuConditions = append(characterInfoIsuConditions, &trendCondition)
+			case "warning":
+				characterWarningIsuConditions = append(characterWarningIsuConditions, &trendCondition)
+			case "critical":
+				characterCriticalIsuConditions = append(characterCriticalIsuConditions, &trendCondition)
+			}
 		}
 
 		sort.Slice(characterInfoIsuConditions, func(i, j int) bool {
@@ -1285,6 +1304,10 @@ func postIsuCondition(c echo.Context) error {
 			c.Logger().Errorf("redis error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
+	}
+	if err := conn.Flush(); err != nil {
+		c.Logger().Errorf("redis error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.NoContent(http.StatusAccepted)
 }
