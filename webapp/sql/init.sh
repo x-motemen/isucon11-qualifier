@@ -11,3 +11,7 @@ export LANG="C.UTF-8"
 cd $CURRENT_DIR
 
 cat 0_Schema.sql 1_InitData.sql | mysql --defaults-file=/dev/null -h $MYSQL_HOST -P $MYSQL_PORT -u $MYSQL_USER $MYSQL_DBNAME
+
+if [ -e /tmp/mysql-slow.log ]; then
+  sudo mv /tmp/mysql-slow.log /tmp/mysql-slow.log.old
+fi
