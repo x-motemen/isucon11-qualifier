@@ -2,18 +2,19 @@ APP = isucondition
 
 all: $(APP)
 
-$(APP): *.go
-	GOOS=linux go build -o $(APP) ./webapp/go
+$(APP): webapp/go/*.go
+	GOOS=linux GOARCH=amd64 go build -o $(APP) ./webapp/go
 
 scp: $(APP)
-	scp ./$(APP) isu01:/home/isucon/$(APP)/webapp/go/$(APP)
-	scp ./$(APP) isu02:/home/isucon/$(APP)/webapp/go/$(APP)
-	scp ./$(APP) isu03:/home/isucon/$(APP)/webapp/go/$(APP)
+	scp ./$(APP) isu01:/home/isucon/webapp/go/$(APP) & \
+	scp ./$(APP) isu02:/home/isucon/webapp/go/$(APP) & \
+	scp ./$(APP) isu03:/home/isucon/webapp/go/$(APP) & \
+	wait
 
 scp-db:
-	scp -r ./db isu01:/home/isucon/$(APP)/webapp/mysql
-	scp -r ./db isu02:/home/isucon/$(APP)/webapp/mysql
-	scp -r ./db isu03:/home/isucon/$(APP)/webapp/mysql
+	# scp -r ./db isu01:/home/isucon/webapp/mysql
+	# scp -r ./db isu02:/home/isucon/webapp/mysql
+	# scp -r ./db isu03:/home/isucon/webapp/mysql
 
 scp-env:
 	scp ./env.sh isu01:/home/isucon/env.sh
@@ -21,19 +22,22 @@ scp-env:
 	scp ./env.sh isu03:/home/isucon/env.sh
 
 restart:
-	ssh isu01 "sudo systemctl restart $(APP).go.service"
-	ssh isu02 "sudo systemctl restart $(APP).go.service"
-	ssh isu03 "sudo systemctl restart $(APP).go.service"
+	ssh isu01 "sudo systemctl restart $(APP).go.service" & \
+	ssh isu02 "sudo systemctl restart $(APP).go.service" & \
+	ssh isu03 "sudo systemctl restart $(APP).go.service" & \
+	wait
 
 stop:
-	ssh isu01 "sudo systemctl stop $(APP).go.service"
-	ssh isu02 "sudo systemctl stop $(APP).go.service"
-	ssh isu03 "sudo systemctl stop $(APP).go.service"
+	ssh isu01 "sudo systemctl stop $(APP).go.service" & \
+	ssh isu02 "sudo systemctl stop $(APP).go.service" & \
+	ssh isu03 "sudo systemctl stop $(APP).go.service" & \
+	wait
 
 start:
-	ssh isu01 "sudo systemctl start $(APP).go.service"
-	ssh isu02 "sudo systemctl start $(APP).go.service"
-	ssh isu03 "sudo systemctl start $(APP).go.service"
+	ssh isu01 "sudo systemctl start $(APP).go.service" & \
+	ssh isu02 "sudo systemctl start $(APP).go.service" & \
+	ssh isu03 "sudo systemctl start $(APP).go.service" & \
+	wait
 
 deploy: $(APP) stop scp scp-db scp-env start
 
