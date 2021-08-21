@@ -1294,19 +1294,12 @@ func postIsuCondition(c echo.Context) error {
 	defer conn.Close()
 	var condsToRedis []*IsuCondition
 
-	sql := "INSERT INTO `isu_condition`" +
-		"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES "
-	params := []interface{}{}
-
 	for _, cond := range req {
 		timestamp := time.Unix(cond.Timestamp, 0)
 
 		if !isValidConditionFormat(cond.Condition) {
 			return c.String(http.StatusBadRequest, "bad request body")
 		}
-
-		sql += "(?,?,?,?,?),"
-		params = append(params, jiaIsuUUID, timestamp, cond.IsSitting, cond.Condition, cond.Message)
 
 		condsToRedis = append(condsToRedis, &IsuCondition{
 			JIAIsuUUID: jiaIsuUUID,
@@ -1315,14 +1308,6 @@ func postIsuCondition(c echo.Context) error {
 			Condition:  cond.Condition,
 			Message:    cond.Message,
 		})
-	}
-
-	sql = sql[:len(sql)-1]
-
-	_, err = db.Exec(sql, params...)
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	for _, ic := range condsToRedis {
