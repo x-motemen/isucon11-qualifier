@@ -50,7 +50,7 @@ reload-nginx:
 	ssh isu01 "sudo systemctl reload nginx.service"
 
 rotate-nginx:
-	ssh isu01 sudo sh -c '[ -f /var/log/nginx/access_log.ltsv ] && mv -f /var/log/nginx/access_log.ltsv /var/log/nginx/access_log.ltsv.old || true'
+	ssh isu01 sudo sh -c 'test -f /var/log/nginx/access_log.ltsv && mv -f /var/log/nginx/access_log.ltsv /var/log/nginx/access_log.ltsv.old || true'
 	ssh isu01 'sudo kill -USR1 `cat /var/run/nginx.pid`'
 
 deploy-nginx: scp-nginx reload-nginx
