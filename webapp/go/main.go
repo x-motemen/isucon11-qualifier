@@ -380,7 +380,7 @@ func postInitialize(c echo.Context) error {
 
 	conn := pool.Get()
 	defer conn.Close()
-	if err := conn.Flush(); err != nil {
+	if _, err := conn.Do("FLUSHALL"); err != nil {
 		c.Logger().Errorf("redis error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
