@@ -24,6 +24,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+
+	_ "net/http/pprof"
 )
 
 const (
@@ -207,7 +209,9 @@ func init() {
 }
 
 func main() {
-	fmt.Println("Hello")
+	go func() {
+		log.Error(http.ListenAndServe(":6060", nil))
+	}()
 
 	e := echo.New()
 	e.Debug = true
