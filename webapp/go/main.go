@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -302,13 +303,22 @@ type queryExecutor interface {
 	Queryx(string, ...interface{}) (*sqlx.Rows, error)
 }
 
+var (
+	config     = &Config{}
+	configOnce sync.Once
+)
+
 func getJIAServiceURL(tx queryExecutor) string {
-	var config Config
-	err := tx.Get(&config, "SELECT * FROM `isu_association_config` WHERE `name` = ?", "jia_service_url")
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			log.Print(err)
+	configOnce.Do(func() {
+		err := tx.Get(config, "SELECT * FROM `isu_association_config` WHERE `name` = ?", "jia_service_url")
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				log.Print(err)
+			}
+			configOnce = sync.Once{}
 		}
+	})
+	if config == nil {
 		return defaultJIAServiceURL
 	}
 	return config.URL
