@@ -1,9 +1,9 @@
-APP = isuumo
+APP = isucondition
 
 all: $(APP)
 
 $(APP): *.go
-	GOOS=linux go build -o $(APP)
+	GOOS=linux go build -o $(APP) ./webapp/go
 
 scp: $(APP)
 	scp ./$(APP) isu01:/home/isucon/$(APP)/webapp/go/$(APP)
