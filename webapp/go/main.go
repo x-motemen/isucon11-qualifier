@@ -631,7 +631,7 @@ func postIsu(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	_, err = db.Exec("INSERT INTO `isu`"+
+	re, err := db.Exec("INSERT INTO `isu`"+
 		"	(`jia_isu_uuid`, `name`, `image`, `jia_user_id`, `character`) VALUES (?, ?, ?, ?, ?)",
 		jiaIsuUUID, isuName, image, jiaUserID, isuFromJIA.Character)
 	if err != nil {
@@ -644,22 +644,20 @@ func postIsu(c echo.Context) error {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-
-	var isu Isu
-	err = db.Get(
-		&isu,
-		"SELECT * FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
-		jiaUserID, jiaIsuUUID)
+	id, err := re.LastInsertId()
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
+	isu := Isu{
+		ID:         int(id),
+		JIAIsuUUID: jiaIsuUUID,
+		Name:       isuName,
+		Image:      image,
+		JIAUserID:  jiaUserID,
+		Character:  isuFromJIA.Character,
 	}
-
 	return c.JSON(http.StatusCreated, isu)
 }
 
