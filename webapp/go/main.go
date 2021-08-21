@@ -381,10 +381,8 @@ func postInitialize(c echo.Context) error {
 	conn := pool.Get()
 	defer conn.Close()
 	if err := conn.Flush(); err != nil {
-		panic(err)
-	}
-	if _, err := conn.Do("PING"); err != nil {
-		panic(err)
+		c.Logger().Errorf("redis error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	isuConditions := []IsuCondition{}
@@ -394,6 +392,17 @@ func postInitialize(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	for _, ic := range isuConditions {
+		jStr, err := json.Marshal(ic)
+		if err != nil {
+			c.Logger().Errorf("marshal error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		if _, err := conn.Do("ZADD", ic.redisKey, ic.zkey, jStr); err != nil {
+			c.Logger().Errorf("redis error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+	}
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
 	})
