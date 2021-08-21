@@ -1303,7 +1303,7 @@ func postIsuCondition(c echo.Context) error {
 			c.Logger().Errorf("marshal error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		if _, err := conn.Do("ZADD", ic.redisKey(), ic.zkey(), jStr); err != nil {
+		if err := conn.Send("ZADD", ic.redisKey(), ic.zkey(), jStr); err != nil {
 			c.Logger().Errorf("redis error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
