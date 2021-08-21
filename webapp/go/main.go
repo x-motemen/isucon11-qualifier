@@ -1048,12 +1048,80 @@ func getIsuConditions(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	conditionsResponse, err := getIsuConditionsFromDB(db, jiaIsuUUID, endTime, conditionLevel, startTime, conditionLimit, isuName)
+	// conditionsResponse, err := getIsuConditionsFromDB(db, jiaIsuUUID, endTime, conditionLevel, startTime, conditionLimit, isuName)
+	conditionsResponse, err := getIsuConditionsFromRedis(jiaIsuUUID, endTime, conditionLevel, startTime, conditionLimit, isuName)
 	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
+		c.Logger().Errorf("redis error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.JSON(http.StatusOK, conditionsResponse)
+}
+
+func getIsuConditionsFromRedis(jiaIsuUUID string, endTime time.Time, conditionLevel map[string]interface{}, startTime time.Time,
+	limit int, isuName string) ([]*GetIsuConditionResponse, error) {
+
+	conditions := make([]IsuCondition, 0, 3000)
+	var err error
+
+	conn := pool.Get()
+	defer conn.Close()
+
+	min := "-inf"
+	if !startTime.IsZero() {
+		min = strconv.Itoa(int(startTime.Unix()))
+	}
+	max := strconv.Itoa(int(endTime.Unix()))
+
+	results, err := redis.Strings(conn.Do("ZRANGEBYSCORE", condPrefix+jiaIsuUUID, "("+max, min, "WITHSCORES"))
+	if err != nil {
+		return nil, fmt.Errorf("ZRANGEBYSCORE %s error: %v", condPrefix+jiaIsuUUID, err)
+	}
+
+	for i := 0; i < len(results); i += 2 {
+		var cond IsuCondition
+		err := json.Unmarshal([]byte(results[i]), &cond)
+		if err != nil {
+			return nil, fmt.Errorf("UNmarshal: %v", err)
+		}
+
+		timesamp, err := strconv.ParseInt(results[i+1], 0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("ParseInt: %v", err)
+		}
+		cond.Timestamp = time.Unix(timesamp, 0)
+		cond.JIAIsuUUID = jiaIsuUUID
+
+		conditions = append(conditions, cond)
+	}
+
+	// ここから DB バージョンと一緒
+
+	conditionsResponse := make([]*GetIsuConditionResponse, 0, len(conditions))
+	for _, c := range conditions {
+		cLevel, err := calculateConditionLevel(c.Condition)
+		if err != nil {
+			continue
+		}
+
+		if _, ok := conditionLevel[cLevel]; ok {
+			data := GetIsuConditionResponse{
+				JIAIsuUUID:     c.JIAIsuUUID,
+				IsuName:        isuName,
+				Timestamp:      c.Timestamp.Unix(),
+				IsSitting:      c.IsSitting,
+				Condition:      c.Condition,
+				ConditionLevel: cLevel,
+				Message:        c.Message,
+			}
+			conditionsResponse = append(conditionsResponse, &data)
+		}
+	}
+
+	if len(conditionsResponse) > limit {
+		conditionsResponse = conditionsResponse[:limit]
+	}
+
+	return conditionsResponse, nil
 }
 
 // ISUのコンディションをDBから取得
