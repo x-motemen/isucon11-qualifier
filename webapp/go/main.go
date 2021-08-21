@@ -875,6 +875,7 @@ func generateIsuGraphResponse(tx queryExecutor, jiaIsuUUID string, graphDate tim
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal: %v", err)
 		}
+		condition.JIAIsuUUID = jiaIsuUUID
 
 		truncatedConditionTime := condition.Timestamp.Truncate(time.Hour)
 		if truncatedConditionTime != startTimeInThisHour {
