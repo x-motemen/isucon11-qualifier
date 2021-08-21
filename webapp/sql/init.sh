@@ -14,4 +14,5 @@ cat 0_Schema.sql 1_InitData.sql | mysql --defaults-file=/dev/null -h $MYSQL_HOST
 
 if [ -e /tmp/mysql-slow.log ]; then
   sudo mv /tmp/mysql-slow.log /tmp/mysql-slow.log.old
+  mysql -uisucon -pisucon -e 'FLUSH SLOW LOGS'
 fi
