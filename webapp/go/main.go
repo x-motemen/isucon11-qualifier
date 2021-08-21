@@ -734,6 +734,9 @@ func getIsuIcon(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	c.Response().Header().Set("Cache-Control", "immutable")
+	c.Response().Header().Set("Expires", "Sat, 04 Sep 2032 07:00:00 GMT")
+
 	return c.Blob(http.StatusOK, "", image)
 }
 
@@ -801,7 +804,7 @@ func generateIsuGraphResponse(tx queryExecutor, jiaIsuUUID string, graphDate tim
 	timestampsInThisHour := []int64{}
 	var startTimeInThisHour time.Time
 	var condition IsuCondition
-	var endTime = graphDate.Add(time.Hour * 24)
+	endTime := graphDate.Add(time.Hour * 24)
 
 	rows, err := tx.Queryx(
 		"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? "+
