@@ -1066,7 +1066,7 @@ func getIsuConditionsFromRedis(jiaIsuUUID string, endTime time.Time, conditionLe
 	conn := pool.Get()
 	defer conn.Close()
 
-	min := "-inf"
+	min := "0"
 	if !startTime.IsZero() {
 		min = strconv.Itoa(int(startTime.Unix()))
 	}
