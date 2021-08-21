@@ -87,7 +87,7 @@ type GetIsuListResponse struct {
 
 type IsuCondition struct {
 	ID         int       `db:"id" json:"id"`
-	JIAIsuUUID string    `db:"jia_isu_uuid" json:"jia_isu_uuid"`
+	JIAIsuUUID string    `db:"jia_isu_uuid" json:"-"`
 	Timestamp  time.Time `db:"timestamp" json:"-"`
 	IsSitting  bool      `db:"is_sitting" json:"is_sitting"`
 	Condition  string    `db:"condition" json:"condition"`
@@ -398,7 +398,7 @@ func postInitialize(c echo.Context) error {
 			c.Logger().Errorf("marshal error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		if _, err := conn.Do("ZADD", ic.redisKey, ic.zkey, jStr); err != nil {
+		if _, err := conn.Do("ZADD", ic.redisKey(), ic.zkey(), jStr); err != nil {
 			c.Logger().Errorf("redis error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
