@@ -407,6 +407,10 @@ func postInitialize(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
+	if err := conn.Flush(); err != nil {
+		c.Logger().Errorf("redis error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
 	})
