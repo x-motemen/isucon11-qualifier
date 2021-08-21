@@ -88,7 +88,7 @@ type GetIsuListResponse struct {
 type IsuCondition struct {
 	ID         int       `db:"id" json:"id"`
 	JIAIsuUUID string    `db:"jia_isu_uuid" json:"-"`
-	Timestamp  time.Time `db:"timestamp" json:"-"`
+	Timestamp  time.Time `db:"timestamp" json:"timestamp"`
 	IsSitting  bool      `db:"is_sitting" json:"is_sitting"`
 	Condition  string    `db:"condition" json:"condition"`
 	Message    string    `db:"message" json:"message"`
