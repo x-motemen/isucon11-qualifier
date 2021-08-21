@@ -86,13 +86,23 @@ type GetIsuListResponse struct {
 }
 
 type IsuCondition struct {
-	ID         int       `db:"id"`
-	JIAIsuUUID string    `db:"jia_isu_uuid"`
-	Timestamp  time.Time `db:"timestamp"`
-	IsSitting  bool      `db:"is_sitting"`
-	Condition  string    `db:"condition"`
-	Message    string    `db:"message"`
-	CreatedAt  time.Time `db:"created_at"`
+	ID         int       `db:"id" json:"id"`
+	JIAIsuUUID string    `db:"jia_isu_uuid" json:"-"`
+	Timestamp  time.Time `db:"timestamp" json:"-"`
+	IsSitting  bool      `db:"is_sitting" json:"is_sitting"`
+	Condition  string    `db:"condition" json:"condition"`
+	Message    string    `db:"message" json:"message"`
+	CreatedAt  time.Time `db:"created_at" json:"-"`
+}
+
+var condPrefix = "cond:"
+
+func (ic *IsuCondition) redisKey() string {
+	return condPrefix + ic.JIAIsuUUID
+}
+
+func (ic *IsuCondition) zkey() int64 {
+	return ic.Timestamp.Unix()
 }
 
 type MySQLConnectionEnv struct {
@@ -370,11 +380,28 @@ func postInitialize(c echo.Context) error {
 
 	conn := pool.Get()
 	defer conn.Close()
-	if err := conn.Flush(); err != nil {
-		panic(err)
+	if _, err := conn.Do("FLUSHALL"); err != nil {
+		c.Logger().Errorf("redis error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
-	if _, err := conn.Do("PING"); err != nil {
-		panic(err)
+
+	isuConditions := []IsuCondition{}
+	err = db.Select(&isuConditions, "SELECT * FROM `isu_condition`")
+	if err != nil {
+		c.Logger().Errorf("db error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	for _, ic := range isuConditions {
+		jStr, err := json.Marshal(ic)
+		if err != nil {
+			c.Logger().Errorf("marshal error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		if _, err := conn.Do("ZADD", ic.redisKey(), ic.zkey(), jStr); err != nil {
+			c.Logger().Errorf("redis error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
 	}
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
